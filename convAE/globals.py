@@ -4,8 +4,6 @@ import numpy as np
 from glob import glob
 import matplotlib.pyplot as plt
 import tensorflow as tf; tf.compat.v1.disable_eager_execution()
-import tensorflow_probability as tfp
-tfd = tfp.distributions
 from keras.layers import Layer, Input, Conv2D, Flatten, Dense, Conv2DTranspose, Reshape, \
     Conv3D, UpSampling3D, Conv3DTranspose, MaxPool3D, Activation, BatchNormalization, LeakyReLU, \
     Dropout, MaxPool2D, UpSampling2D, Lambda, AveragePooling2D, Add, AveragePooling3D, Cropping2D, \
