@@ -16,13 +16,13 @@ conv_act      = 'tanh'
 batch_size=32
 
 vae = ConvVAE(sigma0, beta, conv_act, conv_filt, hidden)
-vae.create_model()
+vae.create_model(input_size=256)
 vae.add_loss_funcs()
 vae.compile(learning_rate=learning_rate, optimizer='Adam', decay=0.)
 #vae.create_lr_scheduler(learning_rate, 0.99, 50)
 #vae.load_vae_weights(vae.get_savefolder())
 
-with nc.Dataset('../junodata/segments_20211229.nc', 'r') as dataset:
+with nc.Dataset('../junodata/segments_20220203.nc', 'r') as dataset:
     data = dataset.variables['imgs'][:]
 
 vae.train(data, epochs=1500, batch_size=batch_size)
