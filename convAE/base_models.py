@@ -238,15 +238,29 @@ class BaseVariationalAE():
         if not os.path.exists(savesfolder):
             os.mkdir(savesfolder)
 
+        if not hasattr(self, 'starting_epoch'):
+            self.starting_epoch=0
+
+        save_freq = int(np.ceil(len(data)/batch_size))*10
+        print(f"Saving checkpoints every {save_freq} batches")
+
+        # create checkpoints
+        checkpoint_filepath = '%s/checkpoint-{epoch:02d}.hdf5'%savesfolder
+        checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
+            checkpoint_filepath, verbose=1,
+            save_best_only=False, save_weights_only=False,
+            save_freq=save_freq, initial_epoch=self.starting_epoch)
+
         print(f"Training {self.name}")
         if hasattr(self, 'lr_scheduler'):
             print("Using Learning Rate Scheduler")
             self.history = self.ae.fit(data, epochs=epochs, validation_split=0.1,
-                            callbacks=[self.lr_scheduler], validation_freq=5, 
+                            callbacks=[self.lr_scheduler, checkpoint_callback], validation_freq=5, 
                             batch_size=batch_size, shuffle=True)
         else:
             self.history = self.ae.fit(data, epochs=epochs, validation_split=0.1, 
-                          validation_freq=5, batch_size=batch_size, shuffle=True)
+                            callbacks=[checkpoint_callback], validation_freq=5, batch_size=batch_size,
+                            shuffle=True)
     def create_name(self):
         hidden_name = ''
         for layeri in self.hidden:
@@ -275,6 +289,13 @@ class BaseVariationalAE():
         if hasattr(self, 'cluster'):
             self.cluster.load_weights(savesfolder+"clusterw.h5")
         #self.ae.load_weights(savesfolder+"VAEw.h5")
+
+    def load_last_checkpoint(self):
+        savesfolder = self.get_savefolder()
+        last_checkpoint = sorted(glob("%s/checkpoint-*.h5"%savesfolder))[-1]
+        self.ae.load_weights(last_checkpoint)
+
+        self.starting_epoch = len(glob("%s/checkpoint-*.h5"%savesfolder))*10
 
     def get_savefolder(self):
         self.savesfolder =  f'{MODEL_SAVE_FOLDER}/{self.conv_act}/models-{self.name}/'
