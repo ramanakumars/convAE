@@ -241,7 +241,7 @@ class BaseVariationalAE():
         if not hasattr(self, 'starting_epoch'):
             self.starting_epoch=0
 
-        save_freq = int(np.ceil(len(data)/batch_size))*10
+        save_freq = int(np.ceil(len(data)*0.9/batch_size))*2
         print(f"Saving checkpoints every {save_freq} batches")
 
         # create checkpoints
@@ -295,7 +295,7 @@ class BaseVariationalAE():
         last_checkpoint = sorted(glob("%s/checkpoint-*.h5"%savesfolder))[-1]
         self.ae.load_weights(last_checkpoint)
 
-        self.starting_epoch = len(glob("%s/checkpoint-*.h5"%savesfolder))*10
+        self.starting_epoch = int(last_checkpoint.split('-')[1].split('.')[0])
 
     def get_savefolder(self):
         self.savesfolder =  f'{MODEL_SAVE_FOLDER}/{self.conv_act}/models-{self.name}/'

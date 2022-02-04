@@ -2,17 +2,17 @@ from .globals import *
 from .base_models import BaseVariationalAE, GammaLayer, GammaLayerConv
 
 class ConvVAE(BaseVariationalAE):
-    def create_model(self, pool=False):
+    def create_model(self, input_size=128):
         hidden     = self.hidden
         conv_filt  = self.conv_filt
         conv_act   = self.conv_act
 
-        input_conv = self.create_encoder()
+        input_conv = self.create_encoder(input_size)
         
         self.latent_dim = K.int_shape(self.mu)[-1]
         self.npixels    = K.int_shape(input_conv)[1]*K.int_shape(input_conv)[2]
 
-        self.create_decoder(input_conv)
+        self.create_decoder(input_conv, input_size)
 
         self.output = self.decoder(self.encoder(self.input)[2])
         
@@ -24,9 +24,13 @@ class ConvVAE(BaseVariationalAE):
 
         self.ae.summary()
         
-    def create_encoder(self):
+    def create_encoder(self, input_size):
         ''' ENCODER '''
-        input_shape = (128, 128, 3)
+
+        if input_size==128:
+            input_shape = (128, 128, 3)
+        else:
+            input_shape = (256, 256, 3)
 
         # Constructing encoder
         self.input = encoder_input = Input(shape=input_shape, name='input')
@@ -36,7 +40,11 @@ class ConvVAE(BaseVariationalAE):
         enc_layers = []
 
         # convolution part
-        enc_layers = encoder_layers2D(self.input, self.conv_filt, self.conv_act, self.hidden)
+        if input_size==128:
+            enc_layers = encoder_layers2D(self.input, self.conv_filt, self.conv_act, self.hidden)
+        else:
+            enc_layers = encoder_layers2D_256(self.input, self.conv_filt, self.conv_act, self.hidden)
+
         input_conv = enc_layers[-1]
         
         mu = Flatten(name='mu')(enc_layers[-1])
@@ -70,7 +78,11 @@ class ConvVAE(BaseVariationalAE):
 
         #upsamp_layer = UpSampling3D((2,2,1), name='dec_upsamp')(dec3)
         
-        dec_layers = decoder_layers2D(dec3, self.conv_filt, self.conv_act, self.hidden)
+        if input_size==128:
+            dec_layers = decoder_layers2D(dec3, self.conv_filt, self.conv_act, self.hidden)
+        else:
+            dec_layers = decoder_layers2D_256(dec3, self.conv_filt, self.conv_act, self.hidden)
+
         decoder_output = dec_layers[-1]
         # Build the decoder
         self.decoder = Model(decoder_input, decoder_output, name='decoder')
