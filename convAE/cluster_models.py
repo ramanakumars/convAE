@@ -3,18 +3,15 @@ from .base_models import BaseVariationalAE, GammaLayerConv, GammaLayer
 from .conv_models import ConvVAE
 
 class ConvVAE_DEC(ConvVAE):
-    def create_model(self, sigma0=0., beta=1.e-3, conv_act='tanh', pool=False):
+    def create_model(self, input_size=128):
         global theta_p, u_p, lambda_p, n_centroid, latent_dim
         n_centroid = self.n_centroid
         hidden     = self.hidden
         conv_filt  = self.conv_filt
-        batch_norm = self.batch_norm
-        batch_norm2 = self.batch_norm2
         self.conv_act  = conv_act
-        self.pool   = pool
 
         ''' ENCODER '''
-        input_conv = self.create_encoder()
+        input_conv = self.create_encoder(input_size)
 
         self.latent_dim = K.int_shape(self.mu)[-1]
         self.npixels    = K.int_shape(input_conv)[1]*K.int_shape(input_conv)[2]
@@ -24,7 +21,7 @@ class ConvVAE_DEC(ConvVAE):
                                     name='gamma')([self.mu, self.sigma, self.z])
         
         ''' DECODER '''
-        self.create_decoder(input_conv)
+        self.create_decoder(input_conv, input_size)
 
         self.output = self.decoder(self.encoder(self.input)[2])
         

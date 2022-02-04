@@ -1,4 +1,10 @@
 from .globals import *
+import re
+
+def natural_sort(l): 
+    convert = lambda text: int(text) if text.isdigit() else text.lower()
+    alphanum_key = lambda key: [convert(c) for c in re.split('([0-9]+)', key)]
+    return sorted(l, key=alphanum_key)
 
 class GammaLayer(Layer):
     def __init__(self, latent_dim, n_centroid, **kwargs):
@@ -245,7 +251,7 @@ class BaseVariationalAE():
         print(f"Saving checkpoints every {save_freq} batches")
 
         # create checkpoints
-        checkpoint_filepath = '%s/checkpoint-{epoch:02d}.hdf5'%savesfolder
+        checkpoint_filepath = '%s/checkpoint-{epoch:05d}.hdf5'%savesfolder
         checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
             checkpoint_filepath, verbose=1,
             save_best_only=False, save_weights_only=False,
@@ -254,11 +260,11 @@ class BaseVariationalAE():
         print(f"Training {self.name}")
         if hasattr(self, 'lr_scheduler'):
             print("Using Learning Rate Scheduler")
-            self.history = self.ae.fit(data, epochs=epochs, validation_split=0.1,
+            self.history = self.ae.fit(data, epochs=epochs, validation_split=0.1, initial_epoch=self.starting_epoch,
                             callbacks=[self.lr_scheduler, checkpoint_callback], validation_freq=5, 
                             batch_size=batch_size, shuffle=True)
         else:
-            self.history = self.ae.fit(data, epochs=epochs, validation_split=0.1, 
+            self.history = self.ae.fit(data, epochs=epochs, validation_split=0.1, initial_epoch=self.starting_epoch,
                             callbacks=[checkpoint_callback], validation_freq=5, batch_size=batch_size,
                             shuffle=True)
     def create_name(self):
@@ -292,10 +298,11 @@ class BaseVariationalAE():
 
     def load_last_checkpoint(self):
         savesfolder = self.get_savefolder()
-        last_checkpoint = sorted(glob("%s/checkpoint-*.h5"%savesfolder))[-1]
+        last_checkpoint = natural_sort(glob("%s/checkpoint-*.hdf5"%savesfolder))[-1]
         self.ae.load_weights(last_checkpoint)
 
-        self.starting_epoch = int(last_checkpoint.split('-')[1].split('.')[0])
+        self.starting_epoch = int(last_checkpoint.split('/')[-1].split('-')[1].split('.')[0])
+        print(f"Loaded checkpoint for epoch {self.starting_epoch}")
 
     def get_savefolder(self):
         self.savesfolder =  f'{MODEL_SAVE_FOLDER}/{self.conv_act}/models-{self.name}/'
