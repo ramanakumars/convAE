@@ -229,7 +229,7 @@ class BaseVariationalAE():
 
         return clust_loss
 
-    def train(self, data, epochs=300, batch_size=10):
+    def train(self, data, epochs=300, batch_size=10, checkpoint_freq=10):
 
         savesfolder = self.get_savefolder()
 
@@ -241,7 +241,7 @@ class BaseVariationalAE():
         if not hasattr(self, 'starting_epoch'):
             self.starting_epoch=0
 
-        save_freq = int(np.ceil(len(data)*0.9/batch_size))*2
+        save_freq = int(np.ceil(len(data)*0.9/batch_size))*checkpoint_freq
         print(f"Saving checkpoints every {save_freq} batches")
 
         # create checkpoints

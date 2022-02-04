@@ -64,7 +64,7 @@ class ConvVAE(BaseVariationalAE):
  
         return input_conv
 
-    def create_decoder(self, input_conv):
+    def create_decoder(self, input_conv, input_size):
         ''' DECODER '''
         # Take the convolution shape to be used in the decoder
         conv_shape = K.int_shape(input_conv)
