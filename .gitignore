@@ -131,3 +131,4 @@ dmypy.json
 # model outputs
 *.h5
 *.hdf5
+*.nc

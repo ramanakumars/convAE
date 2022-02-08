@@ -13,7 +13,7 @@ learning_rate = 1.e-4
 sigma0        = -4.
 conv_act      = 'tanh'
 
-batch_size=128
+batch_size=32
 
 vae = ConvVAE(sigma0, beta, conv_act, conv_filt, hidden)
 vae.create_model()
@@ -21,25 +21,25 @@ vae.add_loss_funcs()
 vae.compile(learning_rate=learning_rate, optimizer='Adam', decay=0.)
 #vae.create_lr_scheduler(learning_rate, 0.99, 50)
 #vae.load_vae_weights(vae.get_savefolder())
-vae.load_last_checkpoint()
+#vae.load_last_checkpoint()
 with nc.Dataset('../junodata/segments_20211229.nc', 'r') as dataset:
     data = dataset.variables['imgs'][:]
 
-vae.train(data, epochs=2000, batch_size=batch_size)
-vae.save()
+#vae.train(data, epochs=300, batch_size=batch_size)
+#vae.save()
 
 vae_dec = ConvVAE_DEC(sigma0, beta, conv_act, conv_filt, hidden)
 vae_dec.n_centroid = 10
 vae_dec.create_model()
 vae_dec.add_loss_funcs()
 
-learning_rate = 5.e-5
+learning_rate = 1.e-5
 vae_dec.compile(learning_rate=learning_rate, optimizer='Adam', decay=0.)
 #vae.create_lr_scheduler(learning_rate, 0.95, 30)
 vae_dec.load_vae_weights(vae.get_savefolder())
 vae_dec.set_initial_positions(data)
 
-vae_dec.train(data, epochs=100, batch_size=batch_size)
+vae_dec.train(data, epochs=300, batch_size=batch_size)
 
 vae_dec.save()
 

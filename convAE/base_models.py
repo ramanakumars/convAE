@@ -1,4 +1,5 @@
 from .globals import *
+from .layers import *
 import re
 
 def natural_sort(l): 
@@ -6,155 +7,6 @@ def natural_sort(l):
     alphanum_key = lambda key: [convert(c) for c in re.split('([0-9]+)', key)]
     return sorted(l, key=alphanum_key)
 
-class GammaLayer(Layer):
-    def __init__(self, latent_dim, n_centroid, **kwargs):
-        super().__init__(**kwargs)
-        self.latent_dim = latent_dim#/npixels)
-        self.n_centroid = n_centroid
-        
-    def build(self, input_shape):
-        theta_init  = np.ones((1, 1, self.n_centroid))/self.n_centroid
-        u_init      = np.random.random((1, self.latent_dim, self.n_centroid))#-0.5
-        lambda_init = np.random.random((1, self.latent_dim, self.n_centroid))
-        
-        # define the variables used by this layer
-        self.theta_p  = tf.Variable(theta_init, trainable=True, shape=(1, 1, self.n_centroid,), name="pi", dtype=tf.float32)
-        self.u_p      = tf.Variable(u_init, trainable=True, shape=(1, self.latent_dim, self.n_centroid), name="u", dtype=tf.float32)
-        self.lambda_p = tf.Variable(lambda_init, trainable=True, shape=(1, self.latent_dim, self.n_centroid),name="lambda", dtype=tf.float32)
-
-        super().build(input_shape)
-
-    def get_z_vals(self, x, only_z=False):
-        n_centroid = self.n_centroid; latent_dim = self.latent_dim
-        mu, sig, z = x
-        
-
-        # reshape the latent values
-        Z = tf.transpose(K.repeat(z, n_centroid),perm=[0,2,1])
-        Z = Reshape((self.latent_dim, n_centroid))(Z)
-
-        if not only_z:
-            z_mean_t = tf.transpose(K.repeat(mu,n_centroid),perm=[0,2,1])
-            z_log_var_t = tf.transpose(K.repeat(sig,n_centroid),[0,2,1])
-            
-            Zmu  = Reshape((self.latent_dim, n_centroid))(z_mean_t)
-            Zsig = Reshape((self.latent_dim, n_centroid))(z_log_var_t)
-
-            return Z, Zmu, Zsig
-        else:
-            return Z
-
-    def get_tensors(self, batch_size):
-        u_tensor3 = tf.repeat(self.u_p, batch_size, axis=0)#self.u_p*K.ones((batch_size, self.latent_dim, n_centroid))
-        lambda_tensor3 = tf.repeat(self.lambda_p, batch_size, axis=0)
-        thetai = tf.repeat(self.theta_p, self.latent_dim, axis=1)
-        theta_tensor3 = tf.repeat(\
-                                    thetai,\
-                                  batch_size, axis=0)#/K.sum(thetai, axis=(2), keepdims=True)
-
-        return theta_tensor3, u_tensor3, lambda_tensor3
-
-    def call(self, x, training=None):
-        n_centroid = self.n_centroid; latent_dim = self.latent_dim
-        mu, sig, z = x
-
-        batch_size = tf.shape(z)[0]
-
-        # reshape the latent values
-        Z = self.get_z_vals(x, only_z=True)
-
-        # build the tensors for calculating gamma
-        theta_tensor3, u_tensor3, lambda_tensor3 = self.get_tensors(batch_size)
-
-        # categorical distribution
-        p_c   = K.sum(K.log(theta_tensor3), axis=1)# - 0.5*K.log(lambda_tensor3*2.*np.pi), axis=1)
-
-        # normal distribution
-        p_z_c = K.sum(-K.square(Z - u_tensor3)/(2*lambda_tensor3), axis=1)
-
-        # p(c|z) = p(c)*p(z|c) = exp( log(p(c)) + log(p(z|c)) )
-        p_c_z = K.exp(p_c + p_z_c) + 1.e-10
-
-        # get gamma=p(c|z)/sum(p(c|z))
-        gamma = p_c_z/K.sum(p_c_z,axis=-1,keepdims=True)
-
-        return gamma#self.gamma_t
-
-
-class GammaLayerConv(Layer):
-    def __init__(self, latent_dim, n_centroid, npixels, **kwargs):
-        super().__init__(**kwargs)
-        self.npixels    = npixels
-        self.latent_dim = int(latent_dim/npixels)
-        self.n_centroid = n_centroid
-        
-    def build(self, input_shape):
-        theta_init  = np.ones((1, self.npixels, 1, self.n_centroid))/self.n_centroid
-        u_init      = np.random.random((1, self.npixels, self.latent_dim, self.n_centroid))
-        lambda_init = np.random.random((1, self.npixels, self.latent_dim, self.n_centroid))
-        
-        # define the variables used by this layer
-        self.theta_p  = tf.Variable(theta_init, trainable=True, shape=(1, self.npixels, 1, self.n_centroid,), name="pi", dtype=tf.float32)
-        self.u_p      = tf.Variable(u_init, trainable=True, shape=(1, self.npixels, self.latent_dim, self.n_centroid), name="u", dtype=tf.float32)
-        self.lambda_p = tf.Variable(lambda_init, trainable=True, shape=(1,self.npixels, self.latent_dim, self.n_centroid),name="lambda", dtype=tf.float32)
-
-        super().build(input_shape)
-
-    def get_tensors(self, batch_size):
-        u_tensor3 = tf.repeat(self.u_p, batch_size, axis=0)#*#K.ones((batch_size, self.npixels, self.latent_dim, n_centroid))
-        lambda_tensor3 = tf.repeat(self.lambda_p, batch_size, axis=0)
-        theta_tensor3 = tf.repeat(\
-                                    tf.repeat(self.theta_p, self.latent_dim, axis=2), \
-                                batch_size, axis=0)
-
-        return theta_tensor3, u_tensor3, lambda_tensor3
-
-    def get_z_vals(self, x, only_z=False):
-        n_centroid = self.n_centroid; latent_dim = self.latent_dim; npixels = self.npixels
-        mu, sig, z = x
-        
-
-        # reshape the latent values
-        Z = tf.transpose(K.repeat(z, n_centroid),perm=[0,2,1])
-        Z = Reshape((self.npixels, self.latent_dim, n_centroid))(Z)
-
-        if not only_z:
-            z_mean_t = tf.transpose(K.repeat(mu,n_centroid),perm=[0,2,1])
-            z_log_var_t = tf.transpose(K.repeat(sig,n_centroid),[0,2,1])
-            
-            Zmu  = Reshape((self.npixels, self.latent_dim, n_centroid))(z_mean_t)
-            Zsig = Reshape((self.npixels, self.latent_dim, n_centroid))(z_log_var_t)
-
-            return Z, Zmu, Zsig
-        else:
-            return Z
-
-    def call(self, x, training=None):
-        n_centroid = self.n_centroid; latent_dim = self.latent_dim
-        mu, sig, z = x
-
-        Z = self.get_z_vals(x, only_z=True)
-        
-        batch_size = tf.shape(z)[0]
-
-        # build the tensors for calculating gamma
-        theta_tensor3, u_tensor3, lambda_tensor3 = self.get_tensors(batch_size)
-
-        #p_c_z = K.exp(K.sum(a - b - c ,axis=(2)) )+1e-10
-        p_c   = K.sum(K.log(theta_tensor3), axis=2)# - 0.5*K.log(lambda_tensor3*2.*np.pi), axis=1)
-
-        # normal distribution
-        p_z_c = K.sum(-K.square(Z - u_tensor3)/(2*lambda_tensor3), axis=2)
-
-        # p(c|z) = p(c)*p(z|c) = exp( log(p(c)) + log(p(z|c)) )
-        p_c_z = K.exp(p_c + p_z_c) + 1.e-10
-
-        # get gamma=p(c|z)/sum(p(c|z))
-        gamma = p_c_z/K.sum(p_c_z,axis=-1,keepdims=True)
-
-        self.gamma = p_c_z/K.sum(p_c_z,axis=-1,keepdims=True)
-
-        return self.gamma
 
 class BaseVariationalAE():
     def __init__(self, sigma0=0., beta=1.e-3, conv_act='relu', conv_filt=512, hidden=[128, 16]):
@@ -254,7 +106,7 @@ class BaseVariationalAE():
         checkpoint_filepath = '%s/checkpoint-{epoch:05d}.hdf5'%savesfolder
         checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
             checkpoint_filepath, verbose=1,
-            save_best_only=False, save_weights_only=False,
+            save_weights_only=True,
             save_freq=save_freq, initial_epoch=self.starting_epoch)
 
         print(f"Training {self.name}")
@@ -298,11 +150,16 @@ class BaseVariationalAE():
 
     def load_last_checkpoint(self):
         savesfolder = self.get_savefolder()
-        last_checkpoint = natural_sort(glob("%s/checkpoint-*.hdf5"%savesfolder))[-1]
-        self.ae.load_weights(last_checkpoint)
+        checkpoints = glob("%s/checkpoint-*.hdf5"%savesfolder)
+        if len(checkpoints)>0:
+            last_checkpoint = natural_sort(checkpoints)[-1]
+            self.ae.load_weights(last_checkpoint)
 
-        self.starting_epoch = int(last_checkpoint.split('/')[-1].split('-')[1].split('.')[0])
-        print(f"Loaded checkpoint for epoch {self.starting_epoch}")
+            self.starting_epoch = int(last_checkpoint.split('/')[-1].split('-')[1].split('.')[0])
+            print(f"Loaded checkpoint for epoch {self.starting_epoch}")
+        else:
+            print("No checkpoints found!")
+
 
     def get_savefolder(self):
         self.savesfolder =  f'{MODEL_SAVE_FOLDER}/{self.conv_act}/models-{self.name}/'
