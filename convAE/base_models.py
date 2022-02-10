@@ -1,4 +1,6 @@
 from .globals import *
+from .io import DataGenerator
+from .utils import *
 from .layers import *
 import re
 
@@ -87,7 +89,7 @@ class BaseVariationalAE():
 
         return clust_loss
 
-    def train(self, data, epochs=300, batch_size=10, checkpoint_freq=10):
+    def train(self, train_data, val_data, epochs=300, batch_size=10, checkpoint_freq=10):
 
         savesfolder = self.get_savefolder()
 
@@ -99,7 +101,10 @@ class BaseVariationalAE():
         if not hasattr(self, 'starting_epoch'):
             self.starting_epoch=0
 
-        save_freq = int(np.ceil(len(data)*0.9/batch_size))*checkpoint_freq
+        if isinstance(train_data, DataGenerator):
+            save_freq = len(train_data)*checkpoint_freq
+        else:
+            save_freq = int(np.ceil(len(train_data)*0.9/batch_size))*checkpoint_freq
         print(f"Saving checkpoints every {save_freq} batches")
 
         # create checkpoints
@@ -112,12 +117,13 @@ class BaseVariationalAE():
         print(f"Training {self.name}")
         if hasattr(self, 'lr_scheduler'):
             print("Using Learning Rate Scheduler")
-            self.history = self.ae.fit(data, epochs=epochs, validation_split=0.1, initial_epoch=self.starting_epoch,
-                            callbacks=[self.lr_scheduler, checkpoint_callback], validation_freq=5, 
-                            batch_size=batch_size, shuffle=True)
+            self.history = self.ae.fit(train_data, epochs=epochs, initial_epoch=self.starting_epoch,
+                            callbacks=[self.lr_scheduler, checkpoint_callback], validation_data=val_data,
+                            validation_freq=5, batch_size=batch_size, shuffle=True)
         else:
-            self.history = self.ae.fit(data, epochs=epochs, validation_split=0.1, initial_epoch=self.starting_epoch,
-                            callbacks=[checkpoint_callback], validation_freq=5, batch_size=batch_size,
+            self.history = self.ae.fit(train_data, epochs=epochs,  initial_epoch=self.starting_epoch,
+                            callbacks=[checkpoint_callback], batch_size=batch_size, 
+                            validation_data=val_data, validation_freq=5, 
                             shuffle=True)
     def create_name(self):
         hidden_name = ''
