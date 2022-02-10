@@ -1,5 +1,5 @@
 from .globals import *
-from .base_models import BaseVariationalAE, GammaLayer, GammaLayerConv
+from .base_models import *
 
 class ConvVAE(BaseVariationalAE):
     def create_model(self, input_size=128):

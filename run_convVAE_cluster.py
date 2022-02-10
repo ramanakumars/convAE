@@ -1,7 +1,6 @@
 #import os
 #os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-from convAE import ConvVAE_DEC
-from convAE import ConvVAE
+from convAE import ConvVAE_DEC, ConvVAE, create_generators
 import netCDF4 as nc
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,7 +12,7 @@ learning_rate = 1.e-4
 sigma0        = -4.
 conv_act      = 'tanh'
 
-batch_size=32
+batch_size=64
 
 vae = ConvVAE(sigma0, beta, conv_act, conv_filt, hidden)
 vae.create_model()
@@ -22,11 +21,13 @@ vae.compile(learning_rate=learning_rate, optimizer='Adam', decay=0.)
 #vae.create_lr_scheduler(learning_rate, 0.99, 50)
 #vae.load_vae_weights(vae.get_savefolder())
 #vae.load_last_checkpoint()
-with nc.Dataset('../junodata/segments_20211229.nc', 'r') as dataset:
-    data = dataset.variables['imgs'][:]
 
-#vae.train(data, epochs=300, batch_size=batch_size)
-#vae.save()
+train_data, val_data = create_generators('../data/segments_20220210.nc', batch_size, val_split=0.1)
+# with nc.Dataset('../data/segments_20211229.nc', 'r') as dset:
+#     data = dset.variables['imgs'][:]
+
+vae.train(train_data, val_data, epochs=300, batch_size=batch_size)
+vae.save()
 
 vae_dec = ConvVAE_DEC(sigma0, beta, conv_act, conv_filt, hidden)
 vae_dec.n_centroid = 10
