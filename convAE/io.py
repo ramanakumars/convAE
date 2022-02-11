@@ -46,7 +46,7 @@ def create_generators(nc_file, batch_size, val_split=0.1):
     val_ind      = inds[:val_split_ind]
     training_ind = inds[val_split_ind:]
     
-    train_data = DataGenerator('../data/segments_20220210.nc', batch_size, indices=training_ind)
-    val_data   = DataGenerator('../data/segments_20220210.nc', batch_size, indices=val_ind)
+    train_data = DataGenerator(nc_file, batch_size, indices=training_ind)
+    val_data   = DataGenerator(nc_file, batch_size, indices=val_ind)
 
     return train_data, val_data
